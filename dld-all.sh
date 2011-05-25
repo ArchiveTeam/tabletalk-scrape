@@ -6,6 +6,7 @@
 #
 
 IDS=`cat $1`
+ERRORS=0
 
 for id in $IDS
 do
@@ -14,9 +15,14 @@ do
     ./grabdisc.sh $id
     if [ $? -ne 0 ]
     then
-      echo "Error!"
-      exit
+      echo "Error! Rerun."
+      ERRORS=1
     fi
   fi
 done
+
+if [ $ERRORS -ne 0 ]
+then
+  echo "There were some errors. Rerun the script to download missing files."
+fi
 
