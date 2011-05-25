@@ -21,19 +21,19 @@ DISCUSSION_DIR=data/${DISCUSSION_ID:0:1}/${DISCUSSION_ID:0:2}/${DISCUSSION_ID:0:
 mkdir -p $DISCUSSION_DIR
 touch $DISCUSSION_DIR/.incomplete
 
-echo -n "Downloading $DISCUSSION_ID: "
+echo "Downloading $DISCUSSION_ID: "
 
 INDEX=0
 while [ $INDEX -ne -1 ]
 do
-  echo -n "$INDEX "
+  echo -n "  $INDEX "
 
   PAGE="$DISCUSSION_DIR/page.$INDEX.html"
   URL="http://tabletalk.salon.com/webx?14@@.$DISCUSSION_ID/$INDEX"
   # wget -nv -a wget.log -U "$USER_AGENT" --no-clobber -O $PAGE "$URL"
   if [ ! -f $PAGE ]
   then
-    wget -U "$USER_AGENT" -O tmp.html "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
+    wget -U "$USER_AGENT" -nv -O tmp.html "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
 
     result=$?
     if [ $result -ne 0 ]
@@ -59,5 +59,5 @@ done
 
 rm $DISCUSSION_DIR/.incomplete
 
-echo "done."
+echo "  $DISCUSSION_ID done."
 
