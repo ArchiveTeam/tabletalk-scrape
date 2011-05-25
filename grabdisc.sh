@@ -7,6 +7,7 @@
 # (excluding the period).
 # E.g.: ee9eb07   from   http://tabletalk.salon.com/webx/.ee9eb07
 #
+# Version 4: More tries, more timeout for wget. Renamed temp file. Support for proxy.
 # Version 3: Better error handling.
 # Version 2: Added referer, sleep between requests, stop on error.
 # Version 1.
@@ -15,6 +16,17 @@
 DISCUSSION_ID=$1
 
 USER_AGENT="Googlebot/2.1 (+http://www.googlebot.com/bot.html)"
+
+function selectProxy {
+  if [ -f proxies.txt ]
+  then
+    oIFS=$IFS IFS=$'\n' lines=($(<"proxies.txt")) IFS=$oIFS
+    n=${#lines[@]}
+    r=$((RANDOM % n))   # see below
+    echo "${lines[r]}"
+    export http_proxy="${lines[r]}"
+  fi
+}
 
 DISCUSSION_DIR=data/${DISCUSSION_ID:0:1}/${DISCUSSION_ID:0:2}/${DISCUSSION_ID:0:3}/$DISCUSSION_ID
 
@@ -33,19 +45,22 @@ do
   # wget -nv -a wget.log -U "$USER_AGENT" --no-clobber -O $PAGE "$URL"
   if [ ! -f $PAGE ]
   then
-    wget -U "$USER_AGENT" -nv -O tmp.html "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
+    selectProxy
+
+    wget --tries=2 --timeout=30 -U "$USER_AGENT" -nv -O tmp/tmp-$$.html "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
 
     result=$?
     if [ $result -ne 0 ]
     then
       echo $result
       echo "Error!"
+      rm -f tmp/tmp-$$.html
       exit 1
     fi
 
-    mv tmp.html $PAGE
+    mv tmp/tmp-$$.html $PAGE
   
-    sleep 2
+    sleep 1
   fi
 
   if grep -q -E "LAST</a>" $PAGE
