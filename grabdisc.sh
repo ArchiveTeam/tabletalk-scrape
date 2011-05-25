@@ -7,6 +7,8 @@
 # (excluding the period).
 # E.g.: ee9eb07   from   http://tabletalk.salon.com/webx/.ee9eb07
 #
+# Version 5: Be more persistent: retry until we've got the file.
+#            Delete files with a spider warning.
 # Version 4: More tries, more timeout for wget. Renamed temp file. Support for proxy.
 # Version 3: Better error handling.
 # Version 2: Added referer, sleep between requests, stop on error.
@@ -42,23 +44,63 @@ do
 
   PAGE="$DISCUSSION_DIR/page.$INDEX.html"
   URL="http://tabletalk.salon.com/webx?14@@.$DISCUSSION_ID/$INDEX"
-  # wget -nv -a wget.log -U "$USER_AGENT" --no-clobber -O $PAGE "$URL"
+  TEMPFILE="tmp/tmp-$$.html"
+
+  if [ -f $PAGE ]
+  then
+    if grep -q "To protect Table Talk from aggressive search spiders" $PAGE
+    then
+      echo "Removing spider warning."
+      rm $PAGE
+    fi
+  fi
+
   if [ ! -f $PAGE ]
   then
-    selectProxy
+    # delete temp file
+    rm -f $TEMPFILE
 
-    wget --tries=2 --timeout=30 -U "$USER_AGENT" -nv -O tmp/tmp-$$.html "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
+    result=99
+    while [ ! -f $TEMPFILE ]
+    do
+      selectProxy
 
-    result=$?
-    if [ $result -ne 0 ]
-    then
-      echo $result
-      echo "Error!"
-      rm -f tmp/tmp-$$.html
-      exit 1
-    fi
+      wget --tries=2 --timeout=30 -U "$USER_AGENT" -nv -O $TEMPFILE "$URL" --referer="http://tabletalk.salon.com/webx/.$DISCUSSION_ID"
 
-    mv tmp/tmp-$$.html $PAGE
+      # check for errors
+      result=$?
+      if [ $result -ne 0 ]
+      then
+        if [ -f proxies.txt ]
+        then
+          echo $http_proxy >> badproxies.txt
+        fi
+        echo "Error!"
+        rm -f $TEMPFILE
+      fi
+
+      # check for spider warning
+      if [ -f $TEMPFILE ]
+      then
+        if grep -q "To protect Table Talk from aggressive search spiders" $TEMPFILE
+        then
+	  echo "Spider blocked."
+          rm -f $TEMPFILE
+        fi
+      fi
+
+      if [ ! -f $TEMPFILE ]
+      then
+        if [ ! -f proxies.txt ]
+	then
+	  # no proxy change possible; just wait
+	  echo "Waiting 10 minutes..."
+	  sleep 600
+	fi
+      fi
+    done
+
+    mv $TEMPFILE $PAGE
   
     sleep 1
   fi
